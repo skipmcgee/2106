@@ -9,5 +9,6 @@
 
 # Import statements for all standard modules
 pip install pdfforms
+import pdfforms
 pdfforms inspect f2106.pdf
 pdfforms fill userdata.csv
