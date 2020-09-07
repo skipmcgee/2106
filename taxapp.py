@@ -36,3 +36,17 @@ except ImportError:
 
 # pdfforms inspect f2106.pdf
 # pdfforms fill userdata.csv
+
+
+# Define the main
+def main():
+    try:
+        print("trying...")
+    except:
+        sys.stderr.write(sys.err)
+    return
+
+# Call the main function
+if __name__ == "__main__":
+    main()
+    exit()
