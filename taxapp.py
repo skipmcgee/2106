@@ -8,6 +8,7 @@
 ##################################################################################
 
 # Import statements
+from os import strerror
 try:
     import pip
 except ImportError:
@@ -36,6 +37,14 @@ except ImportError:
 
 # pdfforms inspect f2106.pdf
 # pdfforms fill userdata.csv
+
+# Define the error function
+try: 
+	stream = open("c:/users/user/Desktop/file.txt","rt")
+	# actual processing goes here
+	stream.close()
+except Exception as exc:
+	print("File could not be opened:",strerror(exc.errno));
 
 
 # Define the main
