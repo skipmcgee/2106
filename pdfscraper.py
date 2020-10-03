@@ -13,8 +13,18 @@ import logging
 import logging.handlers
 import urllib.request
 import datetime
+import platform
+import subprocess
 
-global page_total, error_count, info_error_list, warn_error_list, pdfpagedict, error_string, file_name, file_path
+global page_total, error_count, info_error_list, warn_error_list, error_string, file_name, file_path
+
+
+if platform.system() == "Darwin":
+    try:
+        subprocess.call(["pip", "install", "--upgrade", "certificates"])
+    except:
+        print("MAC user is receiving an error trying to pip install default certificates")
+        pass
 
 
 class PDF_Document:
@@ -25,11 +35,11 @@ class PDF_Document:
         self.error = ""
         self.error_count = 0
         self.pdfpagedict = {}
+        self.pdfinfo = {}
         self.error_string = ""
         self.page_total = 0
         self.info_error_list = []
         self.warn_error_list = []
-
 
     def __str__(self):
         """ Class PDF_Document consists of the actions required to import a PDF Document into a Python dictionary """
@@ -37,18 +47,16 @@ class PDF_Document:
     def __repr__(self):
         """ input(filepath), try open(pdf, 'rb') """
 
-
     def pdfworker(self, file_Obj):
         """ function that takes a file object and reads it into a pdf into a dictionary that python can access """
-        self.file_Obj = PdfFileReader(file_Obj)
-        self.pdfinfo = self.file_Obj.getDocumentInfo()
-        self.page_total = int(self.file_Obj.numPages)
+        file_Obj = PdfFileReader(file_Obj)
+        self.pdfinfo = file_Obj.getDocumentInfo()
+        page_total = int(file_Obj.numPages)
         self.pdfpagedict = {}
-        for page in range(self.page_total):
+        for page in range(page_total):
             page = int(page)
-            self.pageobj = self.file_Obj.getPage(page)
-            self.pdfpagedict[page] = self.pageobj.extractText()
-
+            pageobj = file_Obj.getPage(page)
+            self.pdfpagedict[page] = pageobj.extractText()
 
     def auto_input(self, url=None):
         """ Automatically input a filepath, check date to ensure file is updated if neccessary """
@@ -94,13 +102,12 @@ class PDF_Document:
             self.info_error_list.append(errortup)
             self.auto_input()
 
-
     def manual_input(self):
         try:
             self.file_path = str(input("Enter a filepath to the pdf you would like to use: "))
             self.file_name = self.file_path.split("/")[-1]
         except Exception as error:
-            self.error = str(error)
+            error = str(error)
             self.error_count += 1
             self._message = "N/A"
             errortup = (f"'error_in_function'={__name__}", f"'error_count'={self.error_count}",
@@ -113,12 +120,10 @@ class LogFormatter(logging.Formatter, PDF_Document):
     def __init__(self):
         self.start_time = datetime.datetime.today()
         super().__init__()
-
-    def log_object(self):
         handler = logging.handlers.SysLogHandler(address='localhost')
         formatter = logging.Formatter('%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
         handler.setFormatter(formatter)
-        pdfscraper_log = logging.getLogger('pdfscraper.py')
+        pdfscraper_log = logging.getLogger(__name__)
         pdfscraper_log.setLevel(logging.DEBUG)
         pdfscraper_log.addHandler(handler)
 
@@ -147,20 +152,19 @@ class LogFormatter(logging.Formatter, PDF_Document):
         print(end_message)
         logging.info(end_message)
 
-    def log_message_errorsum(self, error_count):
-        errormessage = f"Sum of errors in pdfscraper.py, 'total_error_count'={error_count};"
-        logging.critical(errormessage)
+    def log_message_errorsum(self, errorcount):
+        errormessage = f"Sum of errors in pdfscraper.py, 'total_error_count'={errorcount};"
+        logging.warning(errormessage)
 
 
 def main():
-# Create log_obj for use as needed, send indicator of script initiation
+    # Create log_obj for use as needed, send indicator of script initiation
     log_obj = LogFormatter()
-    log_obj.log_object()
     log_obj.log_message_begin()
-# Create doc_obj for use
+    # Create doc_obj for use
     doc_obj = PDF_Document()
     doc_obj.coded_input('f2106.pdf')
-# Final log messages for recording completion and problems
+    # Final log messages for recording completion and problems
     log_obj.log_message_end(doc_obj)
     if doc_obj.error_count > 0:
         log_obj.log_message_errorsum(doc_obj.error_count)
