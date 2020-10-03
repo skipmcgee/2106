@@ -14,7 +14,8 @@ import logging.handlers
 import urllib.request
 import datetime
 
-global page_total, error_count, pdfpagedict, error_string, file_name, file_path
+global page_total, error_count, info_error_list, warn_error_list, pdfpagedict, error_string, file_name, file_path
+
 
 class PDF_Document:
     """ Actions that need to occur to process a PDF document into Python """
@@ -26,6 +27,8 @@ class PDF_Document:
         self.pdfpagedict = {}
         self.error_string = ""
         self.page_total = 0
+        self.info_error_list = []
+        self.warn_error_list = []
 
 
     def __str__(self):
@@ -34,53 +37,85 @@ class PDF_Document:
     def __repr__(self):
         """ input(filepath), try open(pdf, 'rb') """
 
-    def auto_input(self):
+
+    def pdfworker(self, file_Obj):
+        """ function that takes a file object and reads it into a pdf into a dictionary that python can access """
+        self.file_Obj = PdfFileReader(file_Obj)
+        self.pdfinfo = self.file_Obj.getDocumentInfo()
+        self.page_total = int(self.file_Obj.numPages)
+        self.pdfpagedict = {}
+        for page in range(self.page_total):
+            page = int(page)
+            self.pageobj = self.file_Obj.getPage(page)
+            self.pdfpagedict[page] = self.pageobj.extractText()
+
+
+    def auto_input(self, url=None):
         """ Automatically input a filepath, check date to ensure file is updated if neccessary """
         try:
-            self.url = f"https://www.irs.gov/pub/irs-pdf/f2106.pdf"
-            self.file_name = self.url.split("/")[-1]
+            if url != None:
+                self.url = url
+            else:
+                self.url = f"https://www.irs.gov/pub/irs-pdf/f2106.pdf"
+                print(f"Using hard-coded URL {self.url}")
+                self.file_name = self.url.split("/")[-1]
             with urllib.request.urlopen(self.url) as self.file_Obj:
-                self.file_Obj = PdfFileReader(self.file_Obj)
-                self.pdfinfo = self.file_Obj.getDocumentInfo()
-                self.page_total = int(self.file_Obj.numPages)
-                self.pdfpagedict = {}
-                for page in range(self.page_total):
-                    page = int(page)
-                    self.pageobj = self.file_Obj.getPage(page)
-                    self.pdfpagedict[page] = self.pageobj.extractText()
+                self.pdfworker(self.file_Obj)
             return self.pdfpagedict
         except Exception as error:
-            self.error_string = f"Error encountered in method auto_input: "
             self.error_count += 1
-            print(self.error_string, error, sep="\n")
+            self.error = str(error)
+            self._message = f"Error encountered in auto_input(), now falling back to manual_input() " \
+                            f"requiring a user to verify and type a local file path."
+            print(self.error)
+            print(self._message)
+            errortup = (f"'error_in_function'={__name__}", f"'error_count'={self.error_count}",
+                        f"'error_message'={self._message}", f"'error'={self.error}",)
+            self.info_error_list.append(errortup)
+            self.manual_input()
+
+    def coded_input(self, file_path=None):
+        """ Try a hard-coded filepath and turn a pdf into a dictionary, if the filepath doesn't exist then
+         try web scraping with auto_input() """
+        try:
+            if file_path != None:
+                self.file_path = file_path
+                with open(self.file_path, 'rb') as self.file_Obj:
+                    self.pdfworker(self.file_Obj)
+            return self.pdfpagedict
+        except FileNotFoundError as error:
             self.error = error
+            self.error_count += 1
+            self._message = f"Filepath to document was not hard-coded, attempting attempting auto_input() an " \
+                                f"automated pull of document from a default URL"
+            logging.info(self._message)
+            errortup = (f"'error_in_function'={__name__}", f"'error_count'={self.error_count}",
+                        f"'error_message'={self._message}", f"'error'={self.error}",)
+            self.info_error_list.append(errortup)
+            self.auto_input()
+        except Exception as error:
+            self.error_count += 1
+            self.error = str(error)
+            self._message = f"Filepath to document was not hard-coded, attempting auto_input() an " \
+                                f"automated pull of document from a default URL"
+            logging.info(self._message)
+            errortup = (f"'error_in_function'={__name__}", f"'error_count'={self.error_count}",
+                        f"'error_message'={self._message}", f"'error'={self.error}",)
+            self.warn_error_list.append(errortup)
+            self.auto_input()
 
     def manual_input(self):
-        """ Manually input a filepath, test user input to ensure file exists and can be read """
         try:
             self.file_path = str(input("Enter a filepath to the pdf you would like to use: "))
             self.file_name = self.file_path.split("/")[-1]
-            with open(self.file_path, 'rb') as self.file_Obj:
-                self.file_Obj = PdfFileReader(self.file_Obj)
-                self.pdfinfo = self.file_Obj.getDocumentInfo()
-                self.page_total = int(self.file_Obj.numPages)
-                self.pdfpagedict = {}
-                for page in range(self.page_total):
-                    page = int(page)
-                    self.pageobj = self.file_Obj.getPage(page)
-                    self.pdfpagedict[page] = self.pageobj.extractText()
-            return self.pdfpagedict
-        except FileNotFoundError as error:
-            print("This filepath does not appear to be correct, please try again.")
-            self.error_count += 1
-            logging.warning("This filepath does not appear to be correct, please try again.", error, "error_count =", self.error_count)
-            self.error = error
-            self.manual_input()
         except Exception as error:
-            self.error_string = f"Error encountered in manual_input method: "
-            print(self.error_string, error, sep="\n")
-            self.error = error
+            self.error = str(error)
             self.error_count += 1
+            self._message = "N/A"
+            errortup = (f"'error_in_function'={__name__}", f"'error_count'={self.error_count}",
+                        f"'error_message'={self._message}", f"'error'={self.error}",)
+            self.info_error_list.append(errortup)
+
 
 class LogFormatter(logging.Formatter, PDF_Document):
     """ Basic system log message generator to identify significant events and errors for troubleshooting """
@@ -88,9 +123,8 @@ class LogFormatter(logging.Formatter, PDF_Document):
         self.start_time = datetime.datetime.today()
         super().__init__()
 
-
     def log_object(self):
-        handler = logging.handlers.SysLogHandler('/dev/log')
+        handler = logging.handlers.SysLogHandler(address='localhost')
         formatter = logging.Formatter('%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
         handler.setFormatter(formatter)
         pdfscraper_log = logging.getLogger('pdfscraper.py')
@@ -98,20 +132,32 @@ class LogFormatter(logging.Formatter, PDF_Document):
         pdfscraper_log.addHandler(handler)
 
     def log_message_begin(self):
-        begin_message = f"Beginning pdfscraper.py, 'start_time'={self.start_time}, 'originating_process'={__name__}"
+        begin_message = f"Beginning pdfscraper.py, 'start_time'={self.start_time}, 'originating_process'={__name__};"
         print(begin_message)
         logging.info(begin_message)
 
-    def log_message_end(self):
+    def info_message(self, doc_obj):
+        for errortup in doc_obj.info_error_list:
+            print(errortup)
+            logging.info(errortup)
+
+    def warn_message(self, doc_obj):
+        for errortup in doc_obj.warn_error_list:
+            print(errortup)
+            logging.warning(errortup)
+
+    def log_message_end(self, doc_obj):
+        if doc_obj.error_count > 0:
+            self.warn_message(doc_obj)
+            self.info_message(doc_obj)
         self.end_time = datetime.datetime.today()
         self.runtime = self.end_time - self.start_time
-        end_message = f"Ending pdfscraper.py, 'end_time'={self.end_time}, 'run_time'={self.runtime}, 'originating_process'={__name__}"
+        end_message = f"Ending pdfscraper.py, 'end_time'={self.end_time}, 'run_time'={self.runtime};"
         print(end_message)
         logging.info(end_message)
 
-    def log_message_errorsum(self, error_count, error_string, error):
-        errormessage = f"Sum of errors in pdfscraper.py, 'error_count' = {error_count}, '{error_string}'={error}"
-        print(errormessage)
+    def log_message_errorsum(self, error_count):
+        errormessage = f"Sum of errors in pdfscraper.py, 'total_error_count'={error_count};"
         logging.critical(errormessage)
 
 
@@ -120,13 +166,13 @@ def main():
     log_obj = LogFormatter()
     log_obj.log_object()
     log_obj.log_message_begin()
-# Creat doc_obj for use
+# Create doc_obj for use
     doc_obj = PDF_Document()
-    doc_obj.auto_input()
+    doc_obj.coded_input('f2106.pdf')
 # Final log messages for recording completion and problems
-    log_obj.log_message_end()
+    log_obj.log_message_end(doc_obj)
     if doc_obj.error_count > 0:
-        log_obj.log_message_errorsum(doc_obj.error_count, doc_obj.error_string, doc_obj.error)
+        log_obj.log_message_errorsum(doc_obj.error_count)
     exit(doc_obj.error_count)
 
 
