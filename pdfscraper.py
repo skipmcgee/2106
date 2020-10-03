@@ -83,7 +83,7 @@ class PDF_Document:
                 with open(self.file_path, 'rb') as self.file_Obj:
                     self.pdfworker(self.file_Obj)
             return self.pdfpagedict
-        except FileNotFoundError as error:
+        except Exception as error:
             self.error = error
             self.error_count += 1
             self._message = f"Filepath to document was not hard-coded, attempting attempting auto_input() an " \
@@ -93,16 +93,7 @@ class PDF_Document:
                         f"'error_message'={self._message}", f"'error'={self.error}",)
             self.info_error_list.append(errortup)
             self.auto_input()
-        except Exception as error:
-            self.error_count += 1
-            self.error = str(error)
-            self._message = f"Filepath to document was not hard-coded, attempting auto_input() an " \
-                                f"automated pull of document from a default URL"
-            logging.info(self._message)
-            errortup = (f"'error_in_function'={__name__}", f"'error_count'={self.error_count}",
-                        f"'error_message'={self._message}", f"'error'={self.error}",)
-            self.warn_error_list.append(errortup)
-            self.auto_input()
+
 
     def manual_input(self):
         try:
