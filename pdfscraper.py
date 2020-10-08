@@ -80,6 +80,7 @@ class PDF_Document:
         if what_to_check != None:
             return
         print("Required input took too long, exiting")
+        exit(1)
 
     def auto_input(self):
         """ Automatically input a filepath, check date to ensure file is updated if neccessary """
