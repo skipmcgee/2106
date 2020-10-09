@@ -8,54 +8,39 @@
 ##################################################################################
 
 # Import statements
-from os import strerror
-try:
-    import pip
-except ImportError:
-    try:
-        subprocess.call(["yum", "install", "-y", "rh-python36-python-pip"])
-        import pip
-    except:
-        try:
-            subprocess.call(["yum", "install", "-y", "python-pip"])
-            import pip
-        except:
-            pass
-# import pdfforms
-try:
-    import pdfforms
-except ImportError:
-    try:
-        subprocess.call(["yum", "install", "-y","pdfforms"])
-        import pdfforms
-    except:
-      try:
-        subprocess.call(["pip", "install", "pdfforms"])
-    except:
-        print("Error with installing pdfforms, unable to install... exiting...")
-        exit()
+from pdfformfiller import PdfFormFiller
 
-# pdfforms inspect f2106.pdf
-# pdfforms fill userdata.csv
+def pdf_manipulation():
+    try:
+        filler = PdfFormFiller("f2106.pdf")
+        filler.add_text(text, pagenum, (x1, y1), (x2, y2))
+        filler.write(outfile)
+    except:
+        pass
 
-# Define the error function
-try: 
-	stream = open("c:/users/user/Desktop/file.txt","rt")
-	# actual processing goes here
-	stream.close()
-except Exception as exc:
-	print("File could not be opened:",strerror(exc.errno));
+# In order to determine the correct (x1, y1), (x2, y2) coordinates for your test field bounding box, we recommend dumping your existing pdf template to images with 72 dpi and using an image editor (like GIMP) to find the pixel coordinates of the rectangle you want your bounding box to be.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # Define the main
 def main():
-    try:
-        print("trying...")
-    except:
-        sys.stderr.write(sys.err)
-    return
+    pdf_manipulation()
+
 
 # Call the main function
 if __name__ == "__main__":
     main()
-    exit()
+    exit(0)
