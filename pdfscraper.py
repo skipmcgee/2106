@@ -17,8 +17,10 @@ import platform
 import subprocess
 import time
 import io
+import threading
 
 global pdf_page_total, error_count, info_error_list, warn_error_list, error_string, file_name, file_path
+
 
 class PDF_Document:
     """ Actions that need to occur to process a PDF document into Python """
@@ -71,10 +73,9 @@ class PDF_Document:
             self.pdfpagedict[page] = pageobj.extractText()
         return self.pdfpagedict
 
-    def timer(self, delay=3, what_to_check=None):
+    def timer(self, delay=10):
         time.sleep(delay)
-        if what_to_check == None or {}:
-            print("Required input took too long, exiting timer().")
+        print("\nRequired input took too long, exiting timer().")
 
     def auto_input(self):
         """ Automatically input a filepath, check date to ensure file is updated if neccessary """
@@ -124,19 +125,27 @@ class PDF_Document:
 
     def manual_input(self):
         try:
-            file_path = str(input("Enter a filepath to the pdf you would like to use: "))
-            print(file_path)
-            with open(file_path, 'rb') as file_obj:
+            thread1 = threading.Thread(target=self.timer, args=(15,))
+            thread1.start()
+            self.file_path = input("Enter a filepath to the pdf you would like to use: ")
+            thread1.join()
+            if self.file_path is None or "":
+                raise NameError
+            with open(self.file_path, 'rb') as file_obj:
                 self.pdfworker(file_obj)
             print(f"manual_input() succeeded, 'total_pages'={self.pdf_page_total}, 'pdf_info'={self.pdfinfo}")
             return self.pdfpagedict
-        except Exception as error:
-            self.error = str(error)
-            print(f"Current error = {self.error}")
+        except NameError as error:
             self.error_count += 1
-            self._message = f"Tried manual_input() without success, errors with the document filepath."
+            self.mid_message(log_obj=log_obj)
+            if self.error_count < 3:
+                self.manual_input(log_obj)
+        except Exception as error:
+            print(f"Current error = {error}")
+            self.error_count += 1
+            _message = f"Tried manual_input() without success, errors with the document filepath."
             errortup = (f"'error_in_function'={__name__}", f"'error_count'={self.error_count}",
-                        f"'error_message'={self._message}", f"'error'={self.error}",)
+                        f"'error_message'={_message}", f"'error'={error}",)
             self.info_error_list.append(errortup)
             raise error
 
