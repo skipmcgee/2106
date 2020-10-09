@@ -16,15 +16,13 @@ import datetime
 import platform
 import subprocess
 import time
-from threading import Thread
+import io
 
-global page_total, error_count, info_error_list, warn_error_list, error_string, file_name, file_path
+global pdf_page_total, error_count, info_error_list, warn_error_list, error_string, file_name, file_path
 
 class PDF_Document:
     """ Actions that need to occur to process a PDF document into Python """
     def __init__(self, myurl=None, file_path=None):
-        self.file_name = ""
-        self.file_path = ""
         self.error = ""
         self.error_count = 0
         self.pdfpagedict = {}
@@ -36,27 +34,25 @@ class PDF_Document:
         # Define default URLs and Filepaths
         if myurl != None:
             self.url = myurl
-        else:
+        elif myurl == None:
             self.url = f"https://www.irs.gov/pub/irs-pdf/f2106.pdf"
         if file_path != None:
             self.file_path = file_path
-        else:
+            if "/" in self.file_path:
+                self.file_name = self.url.split("/")[-1]
+        elif file_path == None:
             self.file_path = 'f2106.pdf'
+            self.file_name = ""
         # Define operating system version and correct for Mac users
-        def my_os():
-            my_os = str(platform.system())
-            if my_os == 'Darwin':
-                return 'Mac'
-            else:
-                return platform.system()
+        self.my_os = str(platform.system())
+        if self.my_os == 'Darwin':
+            self.my_os = 'Mac'
         # Ensure that default SSL certificates are valid (may affect Mac users)
-        def initial_tasks():
-            if my_os == 'Mac':
-                try:
-                    subprocess.call(["pip", "install", "--upgrade", "certificates"])
-                except:
-                    print("Mac user is receiving an error trying to pip install default certificates")
-                    exit(1)
+            try:
+                subprocess.call(["pip", "install", "--upgrade", "certificates"])
+            except:
+                print("Mac user is receiving an error trying to pip install default certificates")
+                exit(1)
 
     def __str__(self):
         """ Class PDF_Document consists of the actions required to import a PDF Document into a Python dictionary """
@@ -64,52 +60,56 @@ class PDF_Document:
     def __repr__(self):
         """ input(filepath), try open(pdf, 'rb') """
 
-    def pdfworker(self, file_Obj):
+    def pdfworker(self, file_obj):
         """ function that takes a file object and reads it into a pdf into a dictionary that python can access """
-        file_Obj = PdfFileReader(file_Obj)
-        self.pdfinfo = file_Obj.getDocumentInfo()
-        page_total = int(file_Obj.numPages)
-        self.pdfpagedict = {}
-        for page in range(page_total):
+        file_obj = PdfFileReader(file_obj)
+        self.pdfinfo = file_obj.getDocumentInfo()
+        page_total = int(file_obj.numPages())
+        for page in range(page_total-1):
             page = int(page)
-            pageobj = file_Obj.getPage(page)
+            pageobj = file_obj.getPage(page)
             self.pdfpagedict[page] = pageobj.extractText()
+        return self.pdfpagedict
 
     def timer(self, delay=3, what_to_check=None):
         time.sleep(delay)
-        if what_to_check != None:
-            return
-        print("Required input took too long, exiting")
-        exit(1)
+        if what_to_check == None or {}:
+            print("Required input took too long, exiting timer().")
 
     def auto_input(self):
         """ Automatically input a filepath, check date to ensure file is updated if neccessary """
         try:
-            print(f"Using hard-coded URL {self.url}")
-            self.file_name = self.url.split("/")[-1]
-            self.timer(delay=10, what_to_check=self.pdfpagedict)
-            Thread(target = self.timer).start()
-            with urllib.request.urlopen(self.url) as self.file_Obj:
-                self.pdfworker(self.file_Obj)
+            print(f"Using hard-coded URL {self.url} to scrape for a PDF.")
+            with urllib.request.urlopen(self.url) as http_obj:
+                bytes_obj = http_obj.read()
+                pdf_obj = PdfFileReader(io.BytesIO(bytes_obj))
+                self.pdfinfo = pdf_obj.getDocumentInfo()
+                self.pdf_page_total = int(pdf_obj.getNumPages())
+                for page in range(self.pdf_page_total):
+                    page = int(page)
+                    pageobj = pdf_obj.getPage(page)
+                    self.pdfpagedict[page] = pageobj.extractText()
+            print(f"auto_input() succeeded, 'total_pages'={self.pdf_page_total}, 'pdf_info'={self.pdfinfo}")
             return self.pdfpagedict
         except Exception as error:
+            print(type(error))
             self.error_count += 1
             self.error = str(error)
             self._message = f"Tried auto_input() without success, errors encountered trying to access the specified URL."
-            print(f"Current error = {self.error}")
+            print(f"Scrape resulted in current error = '{self.error}'")
             print(self._message)
             errortup = (f"'error_in_function'={__name__}", f"'error_count'={self.error_count}",
                         f"'error_message'={self._message}", f"'error'={self.error}",)
             self.info_error_list.append(errortup)
-            raise FileNotFoundError
+            raise TimeoutError
 
     def coded_input(self):
         """ Try a hard-coded filepath and turn a pdf into a dictionary, if the filepath doesn't exist then
          try web scraping with auto_input() """
         try:
-            if self.file_path != None:
-                 with open(self.file_path, 'rb') as self.file_Obj:
-                    self.pdfworker(self.file_Obj)
+            with open(self.file_path, 'rb') as file_obj:
+                self.pdfworker(file_obj)
+            print(f"coded_input() succeeded, 'total_pages'={self.pdf_page_total}, 'pdf_info'={self.pdfinfo}")
             return self.pdfpagedict
         except Exception as error:
             self.error = error
@@ -120,14 +120,16 @@ class PDF_Document:
             errortup = (f"'error_in_function'={__name__}", f"'error_count'={self.error_count}",
                         f"'error_message'={self._message}", f"'error'={self.error}",)
             self.info_error_list.append(errortup)
-            raise FileExistsError
+            raise FileNotFoundError
 
     def manual_input(self):
         try:
-            self.timer(delay=10, what_to_check=self.file_path)
-            Thread(target = self.timer).start()
-            self.file_path = str(input("Enter a filepath to the pdf you would like to use: "))
-            self.file_name = self.file_path.split("/")[-1]
+            file_path = str(input("Enter a filepath to the pdf you would like to use: "))
+            print(file_path)
+            with open(file_path, 'rb') as file_obj:
+                self.pdfworker(file_obj)
+            print(f"manual_input() succeeded, 'total_pages'={self.pdf_page_total}, 'pdf_info'={self.pdfinfo}")
+            return self.pdfpagedict
         except Exception as error:
             self.error = str(error)
             print(f"Current error = {self.error}")
@@ -136,20 +138,19 @@ class PDF_Document:
             errortup = (f"'error_in_function'={__name__}", f"'error_count'={self.error_count}",
                         f"'error_message'={self._message}", f"'error'={self.error}",)
             self.info_error_list.append(errortup)
-            raise LookupError
+            raise error
 
-    def three_inputs(self):
+    def three_inputs(self, obj):
         try:
-            self.auto_input()
-        except FileNotFoundError:
+            obj.auto_input()
+        except TimeoutError:
             try:
-                self.coded_input()
-            except FileExistsError:
+                obj.coded_input()
+            except FileNotFoundError:
                 try:
-                    self.manual_input()
-                except LookupError:
+                    obj.manual_input()
+                except:
                     print("Tried auto_input(), coded_input() & manual_input() without success")
-                    exit(1)
 
 class LogFormatter(logging.Formatter, PDF_Document):
     """ Basic system log message generator to identify significant events and errors for troubleshooting """
@@ -199,7 +200,7 @@ def main():
     log_obj.log_message_begin()
     # Create doc_obj for use
     doc_obj = PDF_Document()
-    doc_obj.three_inputs()
+    doc_obj.three_inputs(doc_obj)
     # Final log messages for recording completion and problems
     log_obj.log_message_end(doc_obj)
     if doc_obj.error_count > 0:
